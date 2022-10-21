@@ -4,8 +4,8 @@
 // @match       https://www.nytimes.com/puzzles/spelling-bee
 // @downloadURL https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @updateURL   https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
-// @grant       none
-// @version     6
+// @grant       GM.addStyle
+// @version     7
 // ==/UserScript==
 
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements@1.1.0/WaitForElements.min.js
@@ -338,7 +338,7 @@ function buildPrefixCountElement(words, forumInfo)
 
     let $outer = document.createElement("div");
     let $wordStats = document.createElement("div");
-    $wordStats.style = "max-width: 23vw;";
+    $wordStats.classList.add("sb-extras-wordstats");
     $wordStats.textContent = forumInfo.wordStats;
     $outer.append($wordStats);
 
@@ -355,13 +355,13 @@ function buildPrefixCountElement(words, forumInfo)
     $el = $thr.insertCell();
     $el.innerText = "# Got";
 
+    let $tb = $wrapper.createTBody();
     let needPairs = Object.keys(forumInfo.twoLetter2Count);
     needPairs.sort();
 
     for (let p of needPairs)
     {
-        let $tr = $wrapper.insertRow();
-        $tr.style = "padding-top: 0.3ex; padding-bottom: 0.3ex;";
+        let $tr = $tb.insertRow();
         $el = $tr.insertCell();
         $el.innerText = p;
         $el = $tr.insertCell();
@@ -372,11 +372,12 @@ function buildPrefixCountElement(words, forumInfo)
         $el.innerText = gotCount;
 
         if (needCount == gotCount)
-            $tr.style = "background-color: #dcffdc;";
+            $tr.classList.add("sb-extras-done");
     }
 
     return $outer;
 }
+
 
 function getFoundWords()
 {
@@ -389,25 +390,18 @@ function getFoundWords()
     return words;
 }
 
+
 function displayCounts($el)
 {
-    $el.id = "prefixcounts";
-    $el.style = `
-        position: absolute;
-        left: 3vw;
-        top: 50vh;
-        font-family: monospace;
-        font-size: 4ex;
-        min-width: 12em;
-        text-align: center;
-    `;
+    $el.id = "sb-extras";
 
-    let $curdiv = document.querySelector("#prefixcounts");
+    let $curdiv = document.querySelector("#sb-extras");
     if ($curdiv === null)
         document.body.insertAdjacentElement("beforeend", $el);
     else
         $curdiv.replaceWith($el);
 }
+
 
 function update(forumInfo)
 {
@@ -415,6 +409,40 @@ function update(forumInfo)
     let $el = buildPrefixCountElement(words, forumInfo);
     displayCounts($el);
 }
+
+
+GM.addStyle(`
+#sb-extras {
+    position: absolute;
+    left: 8vw;
+    top: 50vh;
+    font-family: monospace;
+    font-size: 3.5ex;
+    max-width: 16em;
+    min-width: 16em;
+    text-align: center;
+}
+
+#sb-extras thead {
+    font-weight: bold;
+}
+
+#sb-extras tr {
+    border-bottom-style: dashed;
+    border-bottom-width: thin;
+    border-bottom-color: lightgrey;
+    padding-top: 0.3ex;
+    padding-bottom: 0.3ex;
+}
+
+.sb-extras-done {
+    background-color: #dcffdc;
+}
+
+.sb-extras-wordstats {
+    padding-bottom:  1ex;
+}
+`);
 
 let forumInfo = await fetchForumInfo();
 
