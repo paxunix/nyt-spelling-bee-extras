@@ -5,7 +5,7 @@
 // @downloadURL https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @updateURL   https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @grant       GM.addStyle
-// @version     7
+// @version     8
 // ==/UserScript==
 
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements@1.1.0/WaitForElements.min.js
@@ -283,7 +283,9 @@ class WaitForElements
 //===============
 async function fetchForumInfo()
 {
-    let date = new Date().toLocaleDateString("en-CA").replaceAll("-", "/");
+    let date = new Date();
+    date = `${date.getFullYear()}/${(date.getMonth() + 1 + "").padStart(2, "0")}/${(date.getDate() + "").padStart(2, "0")}`;
+
     let url = new URL(`${date}/crosswords/spelling-bee-forum.html`, "https://www.nytimes.com/");
 
     let response = await fetch(url);
