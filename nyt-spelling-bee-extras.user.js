@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name        Spelling Bee Extras
 // @namespace   paxunix@gmail.com
+// @match       https://www.nytimes.com/puzzles/spelling-bee/*
 // @match       https://www.nytimes.com/puzzles/spelling-bee
 // @downloadURL https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @updateURL   https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @grant       GM.addStyle
-// @version     8
+// @version     9
 // ==/UserScript==
 
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements@1.1.0/WaitForElements.min.js
@@ -281,12 +282,58 @@ class WaitForElements
 }
 
 //===============
-async function fetchForumInfo()
-{
-    let date = new Date();
-    date = `${date.getFullYear()}/${(date.getMonth() + 1 + "").padStart(2, "0")}/${(date.getDate() + "").padStart(2, "0")}`;
 
-    let url = new URL(`${date}/crosswords/spelling-bee-forum.html`, "https://www.nytimes.com/");
+
+function getDateParts(isoDate)
+{
+    let dtfopts = {
+        calendar: 'iso8601',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false,
+    };
+    let dateParts = Object.fromEntries(
+        new Intl.DateTimeFormat(undefined,
+            Object.assign({}, dtfopts, { timeZone: "UTC" }))    // literal interpretation of given date
+            .formatToParts(new Date(isoDate))
+            .map(el => [el.type, el.value])
+        );
+
+    return dateParts;
+}
+
+
+
+function getDateWithDelimiter(dateParts, delim)
+{
+    return [ dateParts.year, dateParts.month.padStart(2, "0"), dateParts.day.padStart(2, "0")].join(delim);
+}
+
+
+function getSlashDate(dateParts)
+{
+    return getDateWithDelimiter(dateParts, "/");
+}
+
+
+async function fetchForumInfo(isoPuzzleDate)
+{
+    let dateParts = "";
+
+    if (isoPuzzleDate === "")
+    {
+        dateParts = getDateParts(new Date());
+    }
+    else
+    {
+        dateParts = getDateParts(isoPuzzleDate);
+    }
+
+    let url = new URL(`${getSlashDate(dateParts)}/crosswords/spelling-bee-forum.html`, "https://www.nytimes.com/");
 
     let response = await fetch(url);
     if (!response.ok)
@@ -412,6 +459,7 @@ function update(forumInfo)
     displayCounts($el);
 }
 
+let isoPuzzleDate = ((window.location.pathname.match("(\\d+-\\d+-\\d+)")) ?? [])[1] ?? "";
 
 GM.addStyle(`
 #sb-extras {
@@ -446,7 +494,7 @@ GM.addStyle(`
 }
 `);
 
-let forumInfo = await fetchForumInfo();
+let forumInfo = await fetchForumInfo(isoPuzzleDate);
 
 update(forumInfo);
 
