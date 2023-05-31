@@ -6,10 +6,14 @@
 // @downloadURL https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @updateURL   https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @grant       GM.addStyle
-// @version     10
+// @version     11
 // ==/UserScript==
 
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements@1.1.0/WaitForElements.min.js
+
+/* jshint esversion: 11 */
+/* globals GM */
+
 (async () => {
 
 "use strict";
@@ -284,7 +288,7 @@ class WaitForElements
 //===============
 
 
-function getDateParts(isoDate)
+function getNowISODateParts()
 {
     let dtfopts = {
         calendar: 'iso8601',
@@ -298,14 +302,24 @@ function getDateParts(isoDate)
     };
     let dateParts = Object.fromEntries(
         new Intl.DateTimeFormat(undefined,
-            Object.assign({}, dtfopts, { timeZone: "America/New_York" }))    // NYT is based in NY (duh)
-            .formatToParts(new Date(isoDate))
+            Object.assign({}, dtfopts, { timeZone: "America/Los_Angeles" }))    // New puzzle lands at 3am ET, so 12am PT, so use LA for time
+            .formatToParts(new Date())
             .map(el => [el.type, el.value])
         );
 
-    return dateParts;
+    return {
+        year: dateParts.year,
+        month: dateParts.month,
+        day: dateParts.day
+    };
 }
 
+
+function getDateParts(isoDateStr)
+{
+    let [year, month, day] = isoDateStr.split("-");
+    return {year, month, day};
+}
 
 
 function getDateWithDelimiter(dateParts, delim)
@@ -320,17 +334,17 @@ function getSlashDate(dateParts)
 }
 
 
-async function fetchForumInfo(isoPuzzleDate)
+async function fetchForumInfo(isoPuzzleDateStr)
 {
-    let dateParts = "";
+    let dateParts = null;
 
-    if (isoPuzzleDate === "")
+    if ((isoPuzzleDateStr ?? "") === "")
     {
-        dateParts = getDateParts(new Date());
+        dateParts = getNowISODateParts();
     }
     else
     {
-        dateParts = getDateParts(isoPuzzleDate);
+        dateParts = getDateParts(isoPuzzleDateStr);
     }
 
     let url = new URL(`${getSlashDate(dateParts)}/crosswords/spelling-bee-forum.html`, "https://www.nytimes.com/");
@@ -459,7 +473,10 @@ function update(forumInfo)
     displayCounts($el);
 }
 
-let isoPuzzleDate = ((window.location.pathname.match("(\\d+-\\d+-\\d+)")) ?? [])[1] ?? "";
+
+// =============== Main ===============
+
+let isoPuzzleDateStr = ((window.location.pathname.match("(\\d+-\\d+-\\d+)")) ?? [])[1] ?? "";
 
 GM.addStyle(`
 #sb-extras {
@@ -494,7 +511,7 @@ GM.addStyle(`
 }
 `);
 
-let forumInfo = await fetchForumInfo(isoPuzzleDate);
+let forumInfo = await fetchForumInfo(isoPuzzleDateStr);
 
 update(forumInfo);
 
