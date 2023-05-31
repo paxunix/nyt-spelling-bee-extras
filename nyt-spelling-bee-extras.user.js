@@ -277,10 +277,13 @@ class WaitForElements
         timerId = window.setTimeout(() => {
             observer.disconnect();
 
-            onTimeoutFn !== null && onTimeoutFn({
-                message: new Error(`Failed to find elements matching ${options.selectors} within ${timeout} milliseconds`),
-                options: options,
-            });
+            if (onTimeoutFn !== null)
+            {
+                onTimeoutFn({
+                    message: new Error(`Failed to find elements matching ${options.selectors} within ${timeout} milliseconds`),
+                    options: options,
+                });
+            }
         }, timeout);
     }
 }
