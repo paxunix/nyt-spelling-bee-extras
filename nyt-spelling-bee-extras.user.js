@@ -6,7 +6,7 @@
 // @downloadURL https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @updateURL   https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @grant       GM.addStyle
-// @version     9
+// @version     10
 // ==/UserScript==
 
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements@1.1.0/WaitForElements.min.js
@@ -298,7 +298,7 @@ function getDateParts(isoDate)
     };
     let dateParts = Object.fromEntries(
         new Intl.DateTimeFormat(undefined,
-            Object.assign({}, dtfopts, { timeZone: "UTC" }))    // literal interpretation of given date
+            Object.assign({}, dtfopts, { timeZone: "America/New_York" }))    // NYT is based in NY (duh)
             .formatToParts(new Date(isoDate))
             .map(el => [el.type, el.value])
         );
