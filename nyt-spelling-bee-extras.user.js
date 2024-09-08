@@ -5,20 +5,19 @@
 // @match       https://www.nytimes.com/puzzles/spelling-bee
 // @downloadURL https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @updateURL   https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
-// @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements@v20231029/WaitForElements.min.js
+// @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements/WaitForElements.min.js
 // @grant       GM.addStyle
-// @version     12
+// @grant       GM.xmlHttpRequest
+// @version     13
 // ==/UserScript==
 
 
-/* jshint esversion: 11 */
+/* jshint esversion: 11, browser: true */
 /* globals GM */
 
 (async () => {
 
 "use strict";
-
-/* jshint esversion: 11, browser: true */
 
 
 function getNowISODateParts()
@@ -61,13 +60,39 @@ function getDateWithDelimiter(dateParts, delim)
 }
 
 
-function getSlashDate(dateParts)
+async function fetcher(opts)
 {
-    return getDateWithDelimiter(dateParts, "/");
+    return new Promise((res, rej) => {
+        opts.headers = opts.headers || {};
+        opts.headers.Accept = opts.headers.Accept || "*/*";
+        opts.method = opts.method || "GET";
+        opts.onload = response => {
+            if (response.status >= 200 && response.status < 300)
+            {
+                res(response);
+            }
+            else
+            {
+                rej({
+                    status: response.status,
+                    statusText: `${response.status} ${response.statusText} retrieving ${opts.url}`
+                });
+            }
+        };
+        opts.onerror = response => {
+            rej({
+                status: response.status,
+                statusText: `${response.status} ${response.statusText} retrieving ${opts.url}`
+            });
+
+        };
+
+        return GM.xmlHttpRequest(opts);
+    });
 }
 
 
-async function fetchForumInfo(isoPuzzleDateStr)
+async function fetchHintInfo(isoPuzzleDateStr)
 {
     let dateParts = null;
 
@@ -80,40 +105,25 @@ async function fetchForumInfo(isoPuzzleDateStr)
         dateParts = getDateParts(isoPuzzleDateStr);
     }
 
-    let url = new URL(`${getSlashDate(dateParts)}/crosswords/spelling-bee-forum.html`, "https://www.nytimes.com/");
+    let url = new URL(`Bee_${getDateWithDelimiter(dateParts, "")}.html`, "https://nytbee.com/");
 
-    let response = await fetch(url);
-    if (!response.ok)
-        throw new Error(`Failed to fetch '${url.href}': (${response.status}) ${response.statusText}`);
+    let response = await fetcher({
+        url: url,
+        responseType: "document",
+    });
 
-    response = await response.text();
-
-    let doc = (new DOMParser()).parseFromString(response, "text/html");
-
-    let wordStats = "";
-    for (let el of doc.querySelectorAll("p.content"))
-    {
-        if (el.innerText.search(/words.*points.*pangrams/i) !== -1)
-        {
-            wordStats = el.innerText.trim();
-            break;
-        }
-    }
+    let doc = response.response;
+    let wordStats = Array.from(doc.querySelectorAll("#puzzle-notes > h3"))
+        .map($el => $el.innerText);
 
     let twoLetter2Count = {};
-    let el = null;
-    for (el of doc.querySelectorAll("p.content"))
+    let wordlist = Array.from(doc.querySelector("#main-answer-list")
+        .querySelectorAll('.flex-list-item'))
+        .map($el => $el.innerText.replaceAll(/\W+/g, ""));
+    for (let w of wordlist)
     {
-        if (el.innerText.search(/two letter list\s*:/i) !== -1)
-        {
-            el = el.nextElementSibling;
-            for (let i of el.innerText.matchAll(/([a-z][a-z])-(\d+)/gi))
-            {
-                twoLetter2Count[i[1].toUpperCase()] = i[2];
-            }
-
-            break;
-        }
+        let twoLetterPrefix = w.substring(0, 2).toUpperCase();
+        twoLetter2Count[twoLetterPrefix] = (twoLetter2Count[twoLetterPrefix] ?? 0) + 1;
     }
 
     return {
@@ -135,7 +145,7 @@ function buildPrefixCountElement(words, forumInfo)
     let $outer = document.createElement("div");
     let $wordStats = document.createElement("div");
     $wordStats.classList.add("sb-extras-wordstats");
-    $wordStats.textContent = forumInfo.wordStats;
+    $wordStats.innerHTML = forumInfo.wordStats.join("<br>");
     $outer.append($wordStats);
 
     let $wrapper = document.createElement("table");
@@ -191,9 +201,10 @@ function displayCounts($el)
 {
     $el.id = "sb-extras";
 
-    let $curdiv = document.querySelector("#sb-extras");
+    let $curdiv = document.querySelector(`#${$el.id}`);
     if ($curdiv === null)
-        document.body.insertAdjacentElement("beforeend", $el);
+        document.querySelector("#pz-game-root")
+            .insertAdjacentElement("afterbegin", $el);
     else
         $curdiv.replaceWith($el);
 }
@@ -214,11 +225,11 @@ let isoPuzzleDateStr = ((window.location.pathname.match("(\\d+-\\d+-\\d+)")) ?? 
 GM.addStyle(`
 #sb-extras {
     position: absolute;
-    left: 8vw;
-    top: 50vh;
+    left: 5em;
+    top: 10ex;
     font-family: monospace;
-    font-size: 3.5ex;
-    max-width: 16em;
+    font-size: 3ex;
+    max-width: 20em;
     min-width: 16em;
     text-align: center;
 }
@@ -244,12 +255,11 @@ GM.addStyle(`
 }
 `);
 
-let forumInfo = await fetchForumInfo(isoPuzzleDateStr);
-
-update(forumInfo);
+let forumInfo = await fetchHintInfo(isoPuzzleDateStr);
 
 let waiter = new WaitForElements({
-    selectors: [ ".sb-wordlist-window .sb-anagram" ],
+    selectors: [ ".hive" ],
+    filter: ($els) => $els.filter($el => $el.checkVisibility()),
     allowMultipleMatches: true,
 });
 
