@@ -8,7 +8,7 @@
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements/WaitForElements.min.js
 // @grant       GM.addStyle
 // @grant       GM.xmlHttpRequest
-// @version     13
+// @version     14
 // ==/UserScript==
 
 
@@ -92,6 +92,18 @@ async function fetcher(opts)
 }
 
 
+function isEachLetterUsedOnce(word)
+{
+    let o = {};
+    for (let letter of word.split(""))
+    {
+        o[letter] = (o[letter] ?? 0) + 1;
+    }
+
+    return Object.values(o).filter(el => el > 1).length === 0;
+}
+
+
 async function fetchHintInfo(isoPuzzleDateStr)
 {
     let dateParts = null;
@@ -120,10 +132,19 @@ async function fetchHintInfo(isoPuzzleDateStr)
     let wordlist = Array.from(doc.querySelector("#main-answer-list")
         .querySelectorAll('.flex-list-item'))
         .map($el => $el.innerText.replaceAll(/\W+/g, ""));
+    let perfectPangramList = Array.from(doc.querySelector("#main-answer-list")
+        .querySelectorAll('.flex-list-item mark'))    // pangrams are marked
+        .map($el => $el.innerText.replaceAll(/\W+/g, ""))
+        .filter(el => isEachLetterUsedOnce(el));
     for (let w of wordlist)
     {
         let twoLetterPrefix = w.substring(0, 2).toUpperCase();
         twoLetter2Count[twoLetterPrefix] = (twoLetter2Count[twoLetterPrefix] ?? 0) + 1;
+    }
+
+    if (perfectPangramList.length > 0)
+    {
+        wordStats[0] = `${wordStats[0]} (${perfectPangramList.length} perfect)`;
     }
 
     return {
