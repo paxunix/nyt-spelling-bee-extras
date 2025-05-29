@@ -8,7 +8,7 @@
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements/WaitForElements.min.js
 // @grant       GM.addStyle
 // @grant       GM.xmlHttpRequest
-// @version     14
+// @version     15
 // ==/UserScript==
 
 
@@ -125,8 +125,26 @@ async function fetchHintInfo(isoPuzzleDateStr)
     });
 
     let doc = response.response;
-    let wordStats = Array.from(doc.querySelectorAll("#puzzle-notes > h3"))
-        .map($el => $el.innerText);
+    let wordStats = {};
+
+    for (let $el of Array.from(doc.querySelectorAll("#puzzle-notes > h3")))
+    {
+        let num = ($el.innerText.match(/number of pangrams:\s*(\d+)/i) ?? [])[1];
+        if (num > 0)
+            wordStats.numberOfPangrams = parseInt(num, 10);
+
+        num = ($el.innerText.match(/maximum puzzle score:\s*(\d+)/i) ?? [])[1];
+        if (num > 0)
+            wordStats.maxScore = parseInt(num, 10);
+
+        num = ($el.innerText.match(/number of answers:\s*(\d+)/i) ?? [])[1];
+        if (num > 0)
+            wordStats.numAnswers = parseInt(num, 10);
+
+        num = ($el.innerText.match(/points needed for genius:\s*(\d+)/i) ?? [])[1];
+        if (num > 0)
+            wordStats.pointsGenius = parseInt(num, 10);
+    }
 
     let twoLetter2Count = {};
     let wordlist = Array.from(doc.querySelector("#main-answer-list")
@@ -142,10 +160,7 @@ async function fetchHintInfo(isoPuzzleDateStr)
         twoLetter2Count[twoLetterPrefix] = (twoLetter2Count[twoLetterPrefix] ?? 0) + 1;
     }
 
-    if (perfectPangramList.length > 0)
-    {
-        wordStats[0] = `${wordStats[0]} (${perfectPangramList.length} perfect)`;
-    }
+    wordStats.numPerfectPangram = perfectPangramList.length;
 
     return {
         wordStats,
@@ -166,8 +181,18 @@ function buildPrefixCountElement(words, forumInfo)
     let $outer = document.createElement("div");
     let $wordStats = document.createElement("div");
     $wordStats.classList.add("sb-extras-wordstats");
-    $wordStats.innerHTML = forumInfo.wordStats.join("<br>");
+    $wordStats.innerHTML = `
+        <span id="_pangramcount">Number of Pangrams: ${forumInfo.wordStats.numberOfPangrams}` +
+        (forumInfo.wordStats.numPerfectPangram > 0 ? ` (${forumInfo.wordStats.numPerfectPangram} perfect)` : "") + "</span><br>" +
+        `Maximum Puzzle Score: ${forumInfo.wordStats.maxScore}<br>
+        Number of Answers: ${forumInfo.wordStats.numAnswers}<br>
+        Points Needed for Genius: ${forumInfo.wordStats.pointsGenius}`;
     $outer.append($wordStats);
+
+    let numPangramsFound = document.querySelectorAll(".sb-wordlist-window .sb-anagram.pangram").length;
+    if (numPangramsFound === forumInfo.wordStats.numberOfPangrams)
+        $wordStats.querySelector("#_pangramcount").classList.add("sb-extras-done");
+
 
     let $wrapper = document.createElement("table");
     $wrapper.style = "width: 100%;";
