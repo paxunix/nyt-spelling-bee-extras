@@ -8,7 +8,7 @@
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements/WaitForElements.min.js
 // @grant       GM.addStyle
 // @grant       GM.xmlHttpRequest
-// @version     15
+// @version     16
 // ==/UserScript==
 
 
@@ -160,7 +160,7 @@ async function fetchHintInfo(isoPuzzleDateStr)
         twoLetter2Count[twoLetterPrefix] = (twoLetter2Count[twoLetterPrefix] ?? 0) + 1;
     }
 
-    wordStats.numPerfectPangram = perfectPangramList.length;
+    wordStats.perfectPangramList = perfectPangramList;
 
     return {
         wordStats,
@@ -183,15 +183,23 @@ function buildPrefixCountElement(words, forumInfo)
     $wordStats.classList.add("sb-extras-wordstats");
     $wordStats.innerHTML = `
         <span id="_pangramcount">Number of Pangrams: ${forumInfo.wordStats.numberOfPangrams}` +
-        (forumInfo.wordStats.numPerfectPangram > 0 ? ` (${forumInfo.wordStats.numPerfectPangram} perfect)` : "") + "</span><br>" +
+        (forumInfo.wordStats.perfectPangramList.length > 0 ?
+            ` <span id="_perfectpangramcount">(${forumInfo.wordStats.perfectPangramList.length} perfect)</span>` :
+            "") +
+        "</span><br>" +
         `Maximum Puzzle Score: ${forumInfo.wordStats.maxScore}<br>
         Number of Answers: ${forumInfo.wordStats.numAnswers}<br>
         Points Needed for Genius: ${forumInfo.wordStats.pointsGenius}`;
     $outer.append($wordStats);
 
-    let numPangramsFound = document.querySelectorAll(".sb-wordlist-window .sb-anagram.pangram").length;
-    if (numPangramsFound === forumInfo.wordStats.numberOfPangrams)
+    let pangramsFound = Array.from(document.querySelectorAll(".sb-wordlist-window .sb-anagram.pangram")).map(el => el.innerText.trim().toLowerCase());
+    let perfectPangramsFound = pangramsFound.filter(word => isEachLetterUsedOnce(word));
+
+    if (pangramsFound.length === forumInfo.wordStats.numberOfPangrams)
         $wordStats.querySelector("#_pangramcount").classList.add("sb-extras-done");
+
+    if (forumInfo.wordStats.perfectPangramList.length > 0 && perfectPangramsFound.length === forumInfo.wordStats.perfectPangramList.length)
+        $wordStats.querySelector("#_perfectpangramcount").classList.add("sb-extras-done");
 
 
     let $wrapper = document.createElement("table");
