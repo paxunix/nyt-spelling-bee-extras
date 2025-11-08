@@ -3,12 +3,13 @@
 // @namespace   paxunix@gmail.com
 // @match       https://www.nytimes.com/puzzles/spelling-bee/*
 // @match       https://www.nytimes.com/puzzles/spelling-bee
+// @match       https://www.nytimes.com/puzzles/spelling-bee?*
 // @downloadURL https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @updateURL   https://raw.githubusercontent.com/paxunix/nyt-spelling-bee-extras/main/nyt-spelling-bee-extras.user.js
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements/WaitForElements.min.js
 // @grant       GM.addStyle
 // @grant       GM.xmlHttpRequest
-// @version     16
+// @version     17
 // ==/UserScript==
 
 
