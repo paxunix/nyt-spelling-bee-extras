@@ -10,7 +10,8 @@
 // @grant       GM.addStyle
 // @grant       GM.xmlHttpRequest
 // @grant       unsafeWindow
-// @version     18
+// @grant       GM.registerMenuCommand
+// @version     19
 // ==/UserScript==
 
 
@@ -43,6 +44,19 @@ function getDateParts(isoDateStr)
 function getDateWithDelimiter(dateParts, delim)
 {
     return [ dateParts.year, dateParts.month.padStart(2, "0"), dateParts.day.padStart(2, "0")].join(delim);
+}
+
+
+function navTo(curIsoDateStr, numDays)
+{
+    let [year, month, day] = curIsoDateStr.split("-");
+    let curDateObj = new Date(year, month - 1, day);
+    let toDateObj = new Date(curDateObj.getTime());
+    toDateObj.setDate(toDateObj.getDate() + numDays);
+
+    const toPuzzleDate = toDateObj.toISOString().split("T")[0];
+
+    window.location = `https://www.nytimes.com/puzzles/spelling-bee/${toPuzzleDate}`;
 }
 
 
@@ -264,6 +278,9 @@ function update(forumInfo)
 async function main()
 {
     let isoPuzzleDateStr = getPuzzleISODate();
+
+    GM.registerMenuCommand("Previous puzzle", () => { navTo(isoPuzzleDateStr, -1) });
+    GM.registerMenuCommand("Next puzzle", () => { navTo(isoPuzzleDateStr, +1) });
 
     GM.addStyle(`
     #sb-extras {
