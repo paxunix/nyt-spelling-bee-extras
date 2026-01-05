@@ -9,42 +9,27 @@
 // @require     https://cdn.jsdelivr.net/gh/paxunix/WaitForElements/WaitForElements.min.js
 // @grant       GM.addStyle
 // @grant       GM.xmlHttpRequest
-// @version     17
+// @grant       unsafeWindow
+// @version     18
 // ==/UserScript==
 
 
 /* jshint esversion: 11, browser: true */
-/* globals GM */
+/* globals WaitForElements */
 
 (async () => {
 
 "use strict";
 
 
-function getNowISODateParts()
+function getPuzzleISODate()
 {
-    let dtfopts = {
-        calendar: 'iso8601',
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        hour12: false,
-    };
-    let dateParts = Object.fromEntries(
-        new Intl.DateTimeFormat(undefined,
-            Object.assign({}, dtfopts, { timeZone: "America/Los_Angeles" }))    // New puzzle lands at 3am ET, so 12am PT, so use LA for time
-            .formatToParts(new Date())
-            .map(el => [el.type, el.value])
-        );
+    let isoDate = unsafeWindow?.gameData?.today?.printDate;
 
-    return {
-        year: dateParts.year,
-        month: dateParts.month,
-        day: dateParts.day
-    };
+    if (!isoDate)
+        throw Error("failed to get date for this puzzle");
+
+    return isoDate;
 }
 
 
@@ -107,17 +92,7 @@ function isEachLetterUsedOnce(word)
 
 async function fetchHintInfo(isoPuzzleDateStr)
 {
-    let dateParts = null;
-
-    if ((isoPuzzleDateStr ?? "") === "")
-    {
-        dateParts = getNowISODateParts();
-    }
-    else
-    {
-        dateParts = getDateParts(isoPuzzleDateStr);
-    }
-
+    let dateParts = getDateParts(isoPuzzleDateStr);
     let url = new URL(`Bee_${getDateWithDelimiter(dateParts, "")}.html`, "https://nytbee.com/");
 
     let response = await fetcher({
@@ -127,6 +102,10 @@ async function fetchHintInfo(isoPuzzleDateStr)
 
     let doc = response.response;
     let wordStats = {};
+    let puzzleNotes = Array.from(doc.querySelectorAll("#puzzle-notes > h3"));
+
+    if (puzzleNotes.length === 0)
+        throw Error("Failed to find hint info notes");
 
     for (let $el of Array.from(doc.querySelectorAll("#puzzle-notes > h3")))
     {
@@ -148,13 +127,22 @@ async function fetchHintInfo(isoPuzzleDateStr)
     }
 
     let twoLetter2Count = {};
-    let wordlist = Array.from(doc.querySelector("#main-answer-list")
+    let $mainAnswerList = doc.querySelector("#main-answer-list");
+
+    if (!$mainAnswerList)
+        throw Error("failed to find #main-answer-list");
+
+    let wordlist = Array.from($mainAnswerList
         .querySelectorAll('.flex-list-item'))
         .map($el => $el.innerText.replaceAll(/\W+/g, ""));
-    let perfectPangramList = Array.from(doc.querySelector("#main-answer-list")
+    let perfectPangramList = Array.from($mainAnswerList
         .querySelectorAll('.flex-list-item mark'))    // pangrams are marked
         .map($el => $el.innerText.replaceAll(/\W+/g, ""))
         .filter(el => isEachLetterUsedOnce(el));
+
+    if (wordlist.length === 0)
+        throw Error("found no words in hint data");
+
     for (let w of wordlist)
     {
         let twoLetterPrefix = w.substring(0, 2).toUpperCase();
@@ -273,51 +261,61 @@ function update(forumInfo)
 }
 
 
-// =============== Main ===============
+async function main()
+{
+    let isoPuzzleDateStr = getPuzzleISODate();
 
-let isoPuzzleDateStr = ((window.location.pathname.match("(\\d+-\\d+-\\d+)")) ?? [])[1] ?? "";
+    GM.addStyle(`
+    #sb-extras {
+        position: absolute;
+        left: 5em;
+        top: 10ex;
+        font-family: monospace;
+        font-size: 3ex;
+        max-width: 20em;
+        min-width: 16em;
+        text-align: center;
+    }
 
-GM.addStyle(`
-#sb-extras {
-    position: absolute;
-    left: 5em;
-    top: 10ex;
-    font-family: monospace;
-    font-size: 3ex;
-    max-width: 20em;
-    min-width: 16em;
-    text-align: center;
+    #sb-extras thead {
+        font-weight: bold;
+    }
+
+    #sb-extras tr {
+        border-bottom-style: dashed;
+        border-bottom-width: thin;
+        border-bottom-color: lightgrey;
+        padding-top: 0.3ex;
+        padding-bottom: 0.3ex;
+    }
+
+    .sb-extras-done {
+        background-color: #dcffdc;
+    }
+
+    .sb-extras-wordstats {
+        padding-bottom:  1ex;
+    }
+    `);
+
+    let forumInfo = await fetchHintInfo(isoPuzzleDateStr);
+
+    let waiter = new WaitForElements({
+        selectors: [ ".hive" ],
+        filter: ($els) => $els.filter($el => $el.checkVisibility()),
+        allowMultipleMatches: true,
+    });
+
+    waiter.match(() => update(forumInfo));
 }
 
-#sb-extras thead {
-    font-weight: bold;
+try {
+    await main();
 }
 
-#sb-extras tr {
-    border-bottom-style: dashed;
-    border-bottom-width: thin;
-    border-bottom-color: lightgrey;
-    padding-top: 0.3ex;
-    padding-bottom: 0.3ex;
+catch (e) {
+    window.alert(`Greasemonkey script ${GM.info.script.name}: ${e.message}`);
+    throw e;
 }
-
-.sb-extras-done {
-    background-color: #dcffdc;
-}
-
-.sb-extras-wordstats {
-    padding-bottom:  1ex;
-}
-`);
-
-let forumInfo = await fetchHintInfo(isoPuzzleDateStr);
-
-let waiter = new WaitForElements({
-    selectors: [ ".hive" ],
-    filter: ($els) => $els.filter($el => $el.checkVisibility()),
-    allowMultipleMatches: true,
-});
-
-waiter.match(() => update(forumInfo));
 
 })();
