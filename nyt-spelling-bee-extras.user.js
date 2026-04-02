@@ -11,7 +11,7 @@
 // @grant       GM.xmlHttpRequest
 // @grant       unsafeWindow
 // @grant       GM.registerMenuCommand
-// @version     19
+// @version     20
 // ==/UserScript==
 
 
@@ -275,12 +275,21 @@ function update(forumInfo)
 }
 
 
+function styleTenLetterWords($els)
+{
+    for (let $el of $els)
+    {
+        if ($el.textContent.trim().length >= 10)
+            $el.classList.add('sb-extras-ten-letter-word')
+    }
+}
+
+
 async function main()
 {
     let isoPuzzleDateStr = getPuzzleISODate();
 
     GM.registerMenuCommand("Previous puzzle", () => { navTo(isoPuzzleDateStr, -1) });
-    GM.registerMenuCommand("Next puzzle", () => { navTo(isoPuzzleDateStr, +1) });
 
     GM.addStyle(`
     #sb-extras {
@@ -313,6 +322,10 @@ async function main()
     .sb-extras-wordstats {
         padding-bottom:  1ex;
     }
+
+    .sb-wordlist-drawer .sb-anagram.sb-extras-ten-letter-word {
+        background: #46f8f9 !important;
+    }
     `);
 
     let forumInfo = await fetchHintInfo(isoPuzzleDateStr);
@@ -323,7 +336,14 @@ async function main()
         allowMultipleMatches: true,
     });
 
+    let tenLetterWordWaiter = new WaitForElements({
+        selectors: [ ".sb-wordlist-drawer .sb-anagram" ],
+        filter: ($els) => $els.filter($el => $el.checkVisibility() && !$el.classList.contains('sb-extras-ten-letter-word')),
+        allowMultipleMatches: true,
+    });
+
     waiter.match(() => update(forumInfo));
+    tenLetterWordWaiter.match(($els) => styleTenLetterWords($els));
 }
 
 try {
