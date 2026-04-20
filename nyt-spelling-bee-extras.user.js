@@ -11,7 +11,7 @@
 // @grant       GM.xmlHttpRequest
 // @grant       unsafeWindow
 // @grant       GM.registerMenuCommand
-// @version     20
+// @version     21
 // ==/UserScript==
 
 
@@ -21,6 +21,9 @@
 (async () => {
 
 "use strict";
+
+const doneBackgroundColor = "#dcffdc";
+const longWordBackgroundColor = "#46f8f9";
 
 
 function getPuzzleISODate()
@@ -275,12 +278,65 @@ function update(forumInfo)
 }
 
 
-function styleTenLetterWords($els)
+function getPuzzleData()
 {
+    return unsafeWindow?.gameData?.today ?? {};
+}
+
+
+function wordStyleClass($el)
+{
+    return Array.from($el.classList).find(className => className.startsWith("sb-extras-word-style-")) ?? "";
+}
+
+
+function getWordStyleElement($wordEl)
+{
+    return $wordEl.closest("li") ?? $wordEl;
+}
+
+
+function styleFoundWords($els)
+{
+    let puzzleData = getPuzzleData();
+    let solutionWords = new Set((puzzleData.answers ?? []).map(word => word.toLowerCase()));
+    let pangramWords = new Set((puzzleData.pangrams ?? []).map(word => word.toLowerCase()));
+
     for (let $el of $els)
     {
-        if ($el.textContent.trim().length >= 10)
-            $el.classList.add('sb-extras-ten-letter-word')
+        let $styleEl = getWordStyleElement($el);
+        let word = $el.textContent.trim().toLowerCase();
+        let isLongSolutionWord = solutionWords.has(word) && word.length >= 10;
+        let isPangram = pangramWords.has(word);
+        let isPerfectPangram = isPangram && isEachLetterUsedOnce(word);
+        let newStyleClass = "sb-extras-word-style-none";
+        let titleText = "";
+
+        $styleEl.classList.remove(
+            "sb-extras-word-style-long-solution",
+            "sb-extras-word-style-pangram",
+            "sb-extras-word-style-long-pangram",
+            "sb-extras-word-style-none"
+        );
+
+        if (isPangram && isLongSolutionWord && !isPerfectPangram)
+        {
+            newStyleClass = "sb-extras-word-style-long-pangram";
+            titleText = "Long non-perfect pangram";
+        }
+        else if (isPangram)
+        {
+            newStyleClass = "sb-extras-word-style-pangram";
+            titleText = isPerfectPangram ? "Perfect pangram" : "Pangram";
+        }
+        else if (isLongSolutionWord)
+        {
+            newStyleClass = "sb-extras-word-style-long-solution";
+            titleText = "Long solution word";
+        }
+
+        $styleEl.classList.add(newStyleClass);
+        $styleEl.title = titleText;
     }
 }
 
@@ -316,15 +372,23 @@ async function main()
     }
 
     .sb-extras-done {
-        background-color: #dcffdc;
+        background-color: ${doneBackgroundColor};
     }
 
     .sb-extras-wordstats {
         padding-bottom:  1ex;
     }
 
-    .sb-wordlist-drawer .sb-anagram.sb-extras-ten-letter-word {
-        background: #46f8f9 !important;
+    .sb-status-box li.sb-extras-word-style-long-solution {
+        background: ${longWordBackgroundColor} !important;
+    }
+
+    .sb-status-box li.sb-extras-word-style-pangram {
+        background: ${doneBackgroundColor} !important;
+    }
+
+    .sb-status-box li.sb-extras-word-style-long-pangram {
+        background: linear-gradient(to bottom right, ${doneBackgroundColor} 50%, ${longWordBackgroundColor} 50%) !important;
     }
     `);
 
@@ -336,14 +400,14 @@ async function main()
         allowMultipleMatches: true,
     });
 
-    let tenLetterWordWaiter = new WaitForElements({
-        selectors: [ ".sb-wordlist-drawer .sb-anagram" ],
-        filter: ($els) => $els.filter($el => $el.checkVisibility() && !$el.classList.contains('sb-extras-ten-letter-word')),
+    let foundWordWaiter = new WaitForElements({
+        selectors: [ ".sb-status-box .sb-anagram" ],
+        filter: ($els) => $els.filter($el => $el.checkVisibility() && wordStyleClass(getWordStyleElement($el)) === ""),
         allowMultipleMatches: true,
     });
 
     waiter.match(() => update(forumInfo));
-    tenLetterWordWaiter.match(($els) => styleTenLetterWords($els));
+    foundWordWaiter.match(($els) => styleFoundWords($els));
 }
 
 try {
