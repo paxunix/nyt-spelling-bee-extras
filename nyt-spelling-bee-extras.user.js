@@ -11,7 +11,7 @@
 // @grant       GM.xmlHttpRequest
 // @grant       unsafeWindow
 // @grant       GM.registerMenuCommand
-// @version     21
+// @version     22
 // ==/UserScript==
 
 
@@ -346,6 +346,7 @@ async function main()
     let isoPuzzleDateStr = getPuzzleISODate();
 
     GM.registerMenuCommand("Previous puzzle", () => { navTo(isoPuzzleDateStr, -1) });
+    GM.registerMenuCommand("Next puzzle", () => { navTo(isoPuzzleDateStr, +1) });
 
     GM.addStyle(`
     #sb-extras {
