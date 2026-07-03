@@ -11,7 +11,7 @@
 // @grant       GM.xmlHttpRequest
 // @grant       unsafeWindow
 // @grant       GM.registerMenuCommand
-// @version     22
+// @version     23
 // ==/UserScript==
 
 
@@ -109,8 +109,7 @@ function isEachLetterUsedOnce(word)
 
 async function fetchHintInfo(isoPuzzleDateStr)
 {
-    let dateParts = getDateParts(isoPuzzleDateStr);
-    let url = new URL(`Bee_${getDateWithDelimiter(dateParts, "")}.html`, "https://nytbee.com/");
+    let url = new URL(`${isoPuzzleDateStr}/answers`, "https://spellingbeesolver.net/");
 
     let response = await fetcher({
         url: url,
@@ -119,46 +118,34 @@ async function fetchHintInfo(isoPuzzleDateStr)
 
     let doc = response.response;
     let wordStats = {};
-    let puzzleNotes = Array.from(doc.querySelectorAll("#puzzle-notes > h3"));
-
-    if (puzzleNotes.length === 0)
-        throw Error("Failed to find hint info notes");
-
-    for (let $el of Array.from(doc.querySelectorAll("#puzzle-notes > h3")))
-    {
-        let num = ($el.innerText.match(/number of pangrams:\s*(\d+)/i) ?? [])[1];
-        if (num > 0)
-            wordStats.numberOfPangrams = parseInt(num, 10);
-
-        num = ($el.innerText.match(/maximum puzzle score:\s*(\d+)/i) ?? [])[1];
-        if (num > 0)
-            wordStats.maxScore = parseInt(num, 10);
-
-        num = ($el.innerText.match(/number of answers:\s*(\d+)/i) ?? [])[1];
-        if (num > 0)
-            wordStats.numAnswers = parseInt(num, 10);
-
-        num = ($el.innerText.match(/points needed for genius:\s*(\d+)/i) ?? [])[1];
-        if (num > 0)
-            wordStats.pointsGenius = parseInt(num, 10);
-    }
 
     let twoLetter2Count = {};
-    let $mainAnswerList = doc.querySelector("#main-answer-list");
+    let wordEls = Array.from(doc.querySelectorAll(".word-box"));
+    if (wordEls.length === 0)
+        throw Error(`Spelling Bee Solver page format changed: expected answer selector ".word-box" at ${url}`);
 
-    if (!$mainAnswerList)
-        throw Error("failed to find #main-answer-list");
+    let wordlist = wordEls
+        .map($el => $el.innerText.replaceAll(/\W+/g, "").toLowerCase())
+        .filter(Boolean);
+    let pangramEls = Array.from(doc.querySelectorAll(".pangram-box, .word-box.pangram-word"));
+    if (pangramEls.length === 0)
+        throw Error(`Spelling Bee Solver page format changed: expected pangram selectors ".pangram-box" or ".word-box.pangram-word" at ${url}`);
 
-    let wordlist = Array.from($mainAnswerList
-        .querySelectorAll('.flex-list-item'))
-        .map($el => $el.innerText.replaceAll(/\W+/g, ""));
-    let perfectPangramList = Array.from($mainAnswerList
-        .querySelectorAll('.flex-list-item mark'))    // pangrams are marked
-        .map($el => $el.innerText.replaceAll(/\W+/g, ""))
-        .filter(el => isEachLetterUsedOnce(el));
+    let pangramList = Array.from(new Set(
+        pangramEls
+            .map($el => $el.innerText.replaceAll(/\W+/g, "").toLowerCase())
+            .filter(Boolean)
+    ));
+    let perfectPangramList = pangramList.filter(el => isEachLetterUsedOnce(el));
 
     if (wordlist.length === 0)
-        throw Error("found no words in hint data");
+        throw Error(`Spelling Bee Solver page format changed: selector ".word-box" matched but produced no answers at ${url}`);
+
+    if (pangramList.length === 0)
+        throw Error(`Spelling Bee Solver page format changed: pangram selectors matched but produced no pangrams at ${url}`);
+
+    wordStats.numberOfPangrams = pangramList.length;
+    wordStats.numAnswers = wordlist.length;
 
     for (let w of wordlist)
     {
@@ -193,9 +180,7 @@ function buildPrefixCountElement(words, forumInfo)
             ` <span id="_perfectpangramcount">(${forumInfo.wordStats.perfectPangramList.length} perfect)</span>` :
             "") +
         "</span><br>" +
-        `Maximum Puzzle Score: ${forumInfo.wordStats.maxScore}<br>
-        Number of Answers: ${forumInfo.wordStats.numAnswers}<br>
-        Points Needed for Genius: ${forumInfo.wordStats.pointsGenius}`;
+        `Number of Answers: ${forumInfo.wordStats.numAnswers}`;
     $outer.append($wordStats);
 
     let pangramsFound = Array.from(document.querySelectorAll(".sb-wordlist-window .sb-anagram.pangram")).map(el => el.innerText.trim().toLowerCase());
