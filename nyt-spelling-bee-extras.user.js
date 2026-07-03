@@ -11,7 +11,7 @@
 // @grant       GM.xmlHttpRequest
 // @grant       unsafeWindow
 // @grant       GM.registerMenuCommand
-// @version     23
+// @version     24
 // ==/UserScript==
 
 
@@ -233,7 +233,7 @@ function buildPrefixCountElement(words, forumInfo)
 function getFoundWords()
 {
     let words = [];
-    for (let $li of document.querySelectorAll(".sb-wordlist-window li"))
+    for (let $li of document.querySelectorAll(".sb-wordlist-window span.sb-anagram"))
     {
         words.push($li.innerText.trim());
     }
