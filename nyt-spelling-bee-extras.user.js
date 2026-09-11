@@ -11,7 +11,7 @@
 // @grant       GM.xmlHttpRequest
 // @grant       unsafeWindow
 // @grant       GM.registerMenuCommand
-// @version     24
+// @version     25
 // ==/UserScript==
 
 
@@ -107,7 +107,19 @@ function isEachLetterUsedOnce(word)
 }
 
 
-async function fetchHintInfo(isoPuzzleDateStr)
+function wordIsPangram(checkWord, letters)
+{
+    let needLetters = new Map(letters.map(t => [ t.toLowerCase(), 1 ]));
+    for (let l of checkWord.split(""))
+    {
+        needLetters.delete(l.toLowerCase());
+    }
+
+    return needLetters.size === 0;
+}
+
+
+async function fetchHintInfo(isoPuzzleDateStr, allLetters)
 {
     let url = new URL(`${isoPuzzleDateStr}/answers`, "https://spellingbeesolver.net/");
 
@@ -118,32 +130,19 @@ async function fetchHintInfo(isoPuzzleDateStr)
 
     let doc = response.response;
     let wordStats = {};
-
     let twoLetter2Count = {};
-    let wordEls = Array.from(doc.querySelectorAll(".word-box"));
+
+    let $allSolutions = Array.from(doc.querySelectorAll('section')).filter(el => el.innerText.search(/All.*Solutions/) !== -1);
+    if ($allSolutions.length === 0)
+        throw Error(`Spelling Bee Solver page format changed: expected "all solutions" section at ${url}`);
+
+    let wordEls = Array.from($allSolutions[0].querySelectorAll(`button:has(span.uppercase)`));
     if (wordEls.length === 0)
-        throw Error(`Spelling Bee Solver page format changed: expected answer selector ".word-box" at ${url}`);
+        throw Error(`Spelling Bee Solver page format changed: expected button:has(span.uppercase) at ${url}`);
 
-    let wordlist = wordEls
-        .map($el => $el.innerText.replaceAll(/\W+/g, "").toLowerCase())
-        .filter(Boolean);
-    let pangramEls = Array.from(doc.querySelectorAll(".pangram-box, .word-box.pangram-word"));
-    if (pangramEls.length === 0)
-        throw Error(`Spelling Bee Solver page format changed: expected pangram selectors ".pangram-box" or ".word-box.pangram-word" at ${url}`);
-
-    let pangramList = Array.from(new Set(
-        pangramEls
-            .map($el => $el.innerText.replaceAll(/\W+/g, "").toLowerCase())
-            .filter(Boolean)
-    ));
+    let wordlist = Array.from($allSolutions[0].querySelectorAll(`button:has(span.uppercase)`)).map($el => $el.innerText.replaceAll(/\W+/g, "").toLowerCase());
+    let pangramList = wordlist.filter(w => wordIsPangram(w, allLetters));
     let perfectPangramList = pangramList.filter(el => isEachLetterUsedOnce(el));
-
-    if (wordlist.length === 0)
-        throw Error(`Spelling Bee Solver page format changed: selector ".word-box" matched but produced no answers at ${url}`);
-
-    if (pangramList.length === 0)
-        throw Error(`Spelling Bee Solver page format changed: pangram selectors matched but produced no pangrams at ${url}`);
-
     wordStats.numberOfPangrams = pangramList.length;
     wordStats.numAnswers = wordlist.length;
 
@@ -328,6 +327,10 @@ function styleFoundWords($els)
 
 async function main()
 {
+    let letters = unsafeWindow.gameData?.today?.validLetters;
+    if (!letters)
+        throw Error("failed to get letters for this puzzle: ${isoPuzzleDateStr}");
+
     let isoPuzzleDateStr = getPuzzleISODate();
 
     GM.registerMenuCommand("Previous puzzle", () => { navTo(isoPuzzleDateStr, -1) });
@@ -378,8 +381,6 @@ async function main()
     }
     `);
 
-    let forumInfo = await fetchHintInfo(isoPuzzleDateStr);
-
     let waiter = new WaitForElements({
         selectors: [ ".hive" ],
         filter: ($els) => $els.filter($el => $el.checkVisibility()),
@@ -392,7 +393,11 @@ async function main()
         allowMultipleMatches: true,
     });
 
-    waiter.match(() => update(forumInfo));
+    await waiter.match();
+    let forumInfo = await fetchHintInfo(isoPuzzleDateStr, letters);
+
+    update(forumInfo);
+
     foundWordWaiter.match(($els) => styleFoundWords($els));
 }
 
