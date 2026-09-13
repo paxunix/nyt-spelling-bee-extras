@@ -10,7 +10,7 @@
 // @grant       GM.addStyle
 // @grant       unsafeWindow
 // @grant       GM.registerMenuCommand
-// @version     26
+// @version     27
 // ==/UserScript==
 
 
@@ -84,6 +84,7 @@ function buildHintInfo(puzzleData)
             numberOfPangrams: puzzleData.pangrams.length,
             numAnswers: puzzleData.answers.length,
             perfectPangramList: puzzleData.pangrams.filter(isEachLetterUsedOnce),
+            longWordList: puzzleData.answers.filter(word => word.length >= 10),
         },
         twoLetter2Count
     };
@@ -108,17 +109,22 @@ function buildPrefixCountElement(words, hintInfo)
             ` <span id="_perfectpangramcount">(${hintInfo.wordStats.perfectPangramList.length} perfect)</span>` :
             "") +
         "</span><br>" +
+        `<span id="_longwordcount">Number of Long Words: ${hintInfo.wordStats.longWordList.length}</span><br>` +
         `Number of Answers: ${hintInfo.wordStats.numAnswers}`;
     $outer.append($wordStats);
 
     let pangramsFound = Array.from(document.querySelectorAll(".sb-wordlist-window .sb-anagram.pangram")).map(el => el.innerText.trim().toLowerCase());
     let perfectPangramsFound = pangramsFound.filter(word => isEachLetterUsedOnce(word));
+    let longWordsFound = words.filter(word => word.length >= 10);
 
     if (pangramsFound.length === hintInfo.wordStats.numberOfPangrams)
         $wordStats.querySelector("#_pangramcount").classList.add("sb-extras-done");
 
     if (hintInfo.wordStats.perfectPangramList.length > 0 && perfectPangramsFound.length === hintInfo.wordStats.perfectPangramList.length)
         $wordStats.querySelector("#_perfectpangramcount").classList.add("sb-extras-done");
+
+    if (hintInfo.wordStats.longWordList.length > 0 && longWordsFound.length === hintInfo.wordStats.longWordList.length)
+        $wordStats.querySelector("#_longwordcount").classList.add("sb-extras-long-word-done");
 
 
     let $wrapper = document.createElement("table");
@@ -282,6 +288,10 @@ async function main()
 
     .sb-extras-done {
         background-color: ${doneBackgroundColor};
+    }
+
+    .sb-extras-long-word-done {
+        background-color: ${longWordBackgroundColor};
     }
 
     .sb-extras-wordstats {
